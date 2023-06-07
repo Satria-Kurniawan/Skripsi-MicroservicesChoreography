@@ -1,0 +1,22 @@
+generator client {
+    provider = "prisma-client-js"
+    output   = "./generated/client_billing"
+}
+
+datasource db {
+    provider = "mysql"
+    url      = env("DATABASE_BILLING_URL")
+}
+
+model Billing {
+    id            String    @id @default(uuid())
+    amount        Int
+    dueDate       DateTime
+    paymentMethod String
+    paymentCode   String?
+    paymentStatus String
+    paymentDate   DateTime?
+    userId        String
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+}
