@@ -63,32 +63,42 @@ export async function confirmPayment(req, res) {
       Buffer.from(JSON.stringify({ billingId, paymentStatus }))
     );
 
-    await channel.assertQueue("PAYMENT_FINISH");
-    await channel.bindQueue("PAYMENT_FINISH", "PAYMENT_FINISH_EXCHANGE", "");
-
     const updateBillingStatus = new Promise(async (resolve, reject) => {
+      await channel.assertQueue("UPDATE_BILLING_SUCCESS", { exclusive: true });
+      await channel.bindQueue(
+        "UPDATE_BILLING_SUCCESS",
+        "PAYMENT_FINISH_EXCHANGE",
+        "billing"
+      );
+
       channel.consume(
-        "PAYMENT_FINISH",
+        "UPDATE_BILLING_SUCCESS",
         (message) => {
           const content = message.content.toString();
           const billingData = JSON.parse(content);
 
           if (!billingData) reject("Error updating billing data.");
-          if (message.fields.routingKey === "billing") resolve(billingData);
+          resolve(billingData);
         },
         { noAck: true }
       );
     });
 
     const updateOrderStatus = new Promise(async (resolve, reject) => {
+      await channel.assertQueue("UPDATE_ORDER_SUCCESS", { exclusive: true });
+      await channel.bindQueue(
+        "UPDATE_ORDER_SUCCESS",
+        "PAYMENT_FINISH_EXCHANGE",
+        "order"
+      );
       channel.consume(
-        "PAYMENT_FINISH",
+        "UPDATE_ORDER_SUCCESS",
         (message) => {
           const content = message.content.toString();
           const orderData = JSON.parse(content);
 
           if (!orderData) reject("Error updating order data.");
-          if (message.fields.routingKey === "order") resolve(orderData);
+          resolve(orderData);
         },
         { noAck: true }
       );

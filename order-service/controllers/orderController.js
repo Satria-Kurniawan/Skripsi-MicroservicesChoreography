@@ -141,14 +141,14 @@ export async function updateOrderByBillingId() {
         const { billingId, paymentStatus } = paymentData;
 
         const updatedOrder = await prisma.order.updateMany({
-          where: { billingId },
+          where: { billingId: billingId },
           data: { status: paymentStatus },
         });
 
         if (updatedOrder.count === 0) return;
 
         const orderData = await prisma.order.findFirst({
-          where: { billingId },
+          where: { billingId: billingId },
         });
 
         if (!orderData) return;

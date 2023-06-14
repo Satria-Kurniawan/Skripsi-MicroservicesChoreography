@@ -20,4 +20,6 @@ validateUserInformation();
 test2Microservices();
 test3Microservices();
 
-app.listen(port, () => console.log(`User service running on port ${port}`));
+app.listen(port, "0.0.0.0", () =>
+  console.log(`User service running on port ${port}`)
+);
