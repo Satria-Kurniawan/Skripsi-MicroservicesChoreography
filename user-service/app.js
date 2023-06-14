@@ -1,7 +1,11 @@
 import express from "express";
 import dotenv from "dotenv";
 import router from "./routes/userRoutes.js";
-import { validateUserInformation } from "./controllers/userController.js";
+import {
+  validateUserInformation,
+  test2Microservices,
+  test3Microservices,
+} from "./controllers/userController.js";
 
 const app = express();
 dotenv.config();
@@ -13,4 +17,7 @@ app.use("/api/user/", router);
 
 validateUserInformation();
 
-app.listen(port, () => console.log(`Listening on port ${port}`));
+test2Microservices();
+test3Microservices();
+
+app.listen(port, () => console.log(`User service running on port ${port}`));

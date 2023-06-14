@@ -1,6 +1,10 @@
 import express from "express";
 import dotenv from "dotenv";
 import router from "./routes/orderRoutes.js";
+import {
+  expiredOrder,
+  updateOrderByBillingId,
+} from "./controllers/orderController.js";
 
 const app = express();
 dotenv.config();
@@ -10,4 +14,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use("/api/order", router);
 
-app.listen(port, () => console.log(`Listening on port ${port}`));
+updateOrderByBillingId();
+expiredOrder();
+
+app.listen(port, () => console.log(`Order service running on port ${port}`));

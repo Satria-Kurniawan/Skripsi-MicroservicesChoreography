@@ -1,7 +1,10 @@
 import express from "express";
 import dotenv from "dotenv";
 import router from "./routes/productRoutes.js";
-import { validateOrderProduct } from "./controllers/productController.js";
+import {
+  rollbackProductStock,
+  validateOrderProduct,
+} from "./controllers/productController.js";
 
 const app = express();
 dotenv.config();
@@ -12,5 +15,6 @@ app.use(express.urlencoded({ extended: false }));
 app.use("/api/product", router);
 
 validateOrderProduct();
+rollbackProductStock();
 
-app.listen(port, () => console.log(`Listening on port ${port}`));
+app.listen(port, () => console.log(`Product service running on port ${port}`));

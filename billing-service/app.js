@@ -1,7 +1,12 @@
 import express from "express";
 import dotenv from "dotenv";
 import router from "./routes/billingRoutes.js";
-import { createBilling } from "./controllers/billingController.js";
+import {
+  createBilling,
+  expiredBilling,
+  test3Microservices,
+  updateBilling,
+} from "./controllers/billingController.js";
 
 const app = express();
 dotenv.config();
@@ -12,5 +17,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use("/api/billing", router);
 
 createBilling();
+updateBilling();
+expiredBilling();
 
-app.listen(port, () => console.log(`Listening on port ${port}`));
+test3Microservices();
+
+app.listen(port, () => console.log(`Billing service running on port ${port}`));

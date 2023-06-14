@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "./generated/client_order"
 }
 
 datasource db {
@@ -17,6 +18,7 @@ model Order {
   price           Int
   amount          Int
   shippingAddress String
+  shippingCarrier String?
   note            String
   productId       String
   billingId       String

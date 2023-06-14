@@ -123,88 +123,6 @@ export async function signIn(req, res) {
   }
 }
 
-export async function getMe(req, res) {
-  const user = req.user;
-
-  res.status(200).json({
-    ok: true,
-    message: "Success",
-    statusCode: 200,
-    data: { user },
-  });
-}
-
-export async function getUserById(req, res) {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.params.userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        avatar: true,
-        address: true,
-        phone: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        ok: false,
-        message: "Pengguna tidak ditemukan.",
-        statusCode: 404,
-      });
-    }
-
-    res.status(200).json({
-      ok: true,
-      message: "Success",
-      statusCode: 200,
-      data: { user },
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({
-      ok: false,
-      message: "Kesalahan pada server.",
-      statusCode: 500,
-    });
-  }
-}
-
-export async function getAllUsers(req, res) {
-  try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        avatar: true,
-        address: true,
-        phone: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    res.status(200).json({
-      ok: false,
-      message: "Success",
-      statusCode: 200,
-      data: { users },
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({
-      ok: false,
-      message: "Kesalahan pada server.",
-      statusCode: 500,
-    });
-  }
-}
-
 export async function validateUserInformation() {
   try {
     const { channel, connection } = await createAmqpConnection();
@@ -235,12 +153,13 @@ export async function validateUserInformation() {
           return;
         }
 
-        const { productId, quantity, price, paymentMethod, note } =
+        const { productId, quantity, price, paymentMethod, note, stock } =
           orderProductValidData;
 
         const orderDataValid = {
           productId,
           quantity,
+          stock,
           price,
           paymentMethod,
           note,
@@ -263,91 +182,65 @@ export async function validateUserInformation() {
   }
 }
 
-// DUA SERVICE
-// export async function validateUserInformation() {
-//   try {
-//     const { channel, connection } = await createAmqpConnection();
+export async function test2Microservices() {
+  try {
+    const { channel } = await createAmqpConnection();
 
-//     channel.assertQueue("ORDER_START", { durable: true });
-//     channel.consume(
-//       "ORDER_START",
-//       async (message) => {
-//         const orderDataString = message.content.toString();
-//         const orderData = JSON.parse(orderDataString);
+    channel.assertQueue("GET_USER", { durable: false });
+    channel.consume(
+      "GET_USER",
+      async (message) => {
+        const userId = message.content.toString();
 
-//         const user = await prisma.user.findFirst({
-//           where: { id: orderData.userId },
-//         });
+        const user = await prisma.user.findFirst({
+          where: { id: userId },
+        });
 
-//         channel.assertQueue("ORDER_INVALID", { durable: true });
-//         channel.sendToQueue(
-//           "ORDER_INVALID",
-//           Buffer.from(JSON.stringify(user)),
-//           { persistent: true }
-//         );
-//       },
-//       { noAck: false }
-//     );
-//   } catch (error) {
-//     console.log(error);
-//   }
-// }
+        if (!user) return;
 
-// TIGA SERVICE
-// export async function validateUserInformation() {
-//   try {
-//     const { channel, connection } = await createAmqpConnection();
+        channel.ack(message);
 
-//     channel.assertQueue("ORDER_PRODUCT_VALID", { durable: true });
-//     channel.consume(
-//       "ORDER_PRODUCT_VALID",
-//       async (message) => {
-//         const orderProductValidDataString = message.content.toString();
-//         const orderProductValidData = JSON.parse(orderProductValidDataString);
+        channel.assertQueue(message.properties.replyTo);
+        channel.sendToQueue(
+          message.properties.replyTo,
+          Buffer.from(JSON.stringify(user))
+        );
+      },
+      { noAck: false }
+    );
+  } catch (error) {
+    console.log(error);
+  }
+}
 
-//         const user = await prisma.user.findFirst({
-//           where: { id: orderProductValidData.userId },
-//         });
+export async function test3Microservices() {
+  try {
+    const { channel } = await createAmqpConnection();
 
-//         if (!user.address || !user.phone) {
-//           channel.assertQueue("ORDER_INVALID", { durable: true });
-//           channel.sendToQueue(
-//             "ORDER_INVALID",
-//             Buffer.from(
-//               JSON.stringify({
-//                 success: false,
-//                 message: "Data user belum lengkap.",
-//               })
-//             ),
-//             { persistent: true }
-//           );
-//           return;
-//         }
+    channel.assertQueue("GET_USER_&_BILLING", { durable: false });
+    channel.consume(
+      "GET_USER_&_BILLING",
+      async (message) => {
+        const content = message.content.toString();
+        const data = JSON.parse(content);
 
-//         const { productId, quantity, price, paymentMethod, note } =
-//           orderProductValidData;
+        const user = await prisma.user.findFirst({
+          where: { id: data.userId },
+        });
 
-//         const order = {
-//           productId,
-//           quantity,
-//           price,
-//           paymentMethod,
-//           note,
-//           user: { id: user.id, shippingAddress: user.address },
-//         };
+        if (!user) return;
 
-//         channel.assertQueue("ORDER_INVALID", { durable: true });
-//         channel.sendToQueue(
-//           "ORDER_INVALID",
-//           Buffer.from(JSON.stringify(order)),
-//           { persistent: true }
-//         );
+        channel.ack(message);
 
-//         channel.ack(message);
-//       },
-//       { noAck: false }
-//     );
-//   } catch (error) {
-//     console.log(error);
-//   }
-// }
+        channel.assertQueue("GET_BILLING", { durable: false });
+        channel.sendToQueue(
+          "GET_BILLING",
+          Buffer.from(JSON.stringify({ user, billingId: data.billingId }))
+        );
+      },
+      { noAck: false }
+    );
+  } catch (error) {
+    console.log(error);
+  }
+}

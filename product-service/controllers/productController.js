@@ -107,11 +107,11 @@ export async function validateOrderProduct() {
         const orderDataString = message.content.toString();
         const orderData = JSON.parse(orderDataString);
 
-        const product = await prisma.product.findFirst({
+        const productFound = await prisma.product.findFirst({
           where: { id: orderData.productId },
         });
 
-        if (product.quantities < parseInt(orderData.quantity)) {
+        if (productFound.quantities < parseInt(orderData.quantity)) {
           channel.assertQueue("ORDER_INVALID", { durable: true });
           channel.sendToQueue(
             "ORDER_INVALID",
@@ -124,7 +124,16 @@ export async function validateOrderProduct() {
             { persistent: true }
           );
         } else {
-          const orderProductValidData = { ...orderData, price: product.price };
+          const product = await prisma.product.update({
+            where: { id: orderData.productId },
+            data: { quantities: productFound.quantities - orderData.quantity },
+          });
+
+          const orderProductValidData = {
+            ...orderData,
+            price: product.price,
+            stock: product.quantities,
+          };
 
           channel.assertQueue("ORDER_PRODUCT_VALID", { durable: true });
           channel.sendToQueue(
@@ -138,6 +147,47 @@ export async function validateOrderProduct() {
       },
       { noAck: false }
     );
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+export async function rollbackProductStock() {
+  try {
+    const { channel, connection } = await createAmqpConnection();
+
+    await channel.assertQueue("ROLLBACK_PRODUCTS_STOCK");
+    await channel.bindQueue(
+      "ROLLBACK_PRODUCTS_STOCK",
+      "TRANSACTIONS_CANCEL_EXCHANGE",
+      ""
+    );
+    channel.consume("ROLLBACK_PRODUCTS_STOCK", async (message) => {
+      const content = message.content.toString();
+      const data = JSON.parse(content);
+
+      for (const obj of data) {
+        try {
+          await prisma.product.update({
+            where: { id: obj.productId },
+            data: { quantities: obj.productStock + obj.orderQuantity },
+          });
+        } catch (error) {
+          console.log(error);
+        }
+      }
+
+      await channel.assertExchange(
+        "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
+        "fanout",
+        { durable: false }
+      );
+      channel.publish(
+        "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
+        "",
+        Buffer.from(JSON.stringify("Cancelation success."))
+      );
+    });
   } catch (error) {
     console.log(error);
   }
