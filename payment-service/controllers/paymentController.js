@@ -40,8 +40,10 @@ export async function saveTemporaryTransaction() {
           expiresAt: expires,
         },
       });
+
+      channel.ack(message);
     },
-    { noAck: true }
+    { noAck: false }
   );
 }
 
