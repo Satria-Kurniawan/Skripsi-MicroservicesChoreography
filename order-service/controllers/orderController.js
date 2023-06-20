@@ -57,9 +57,9 @@ export async function createOrder(req, res) {
           };
 
           await channel.assertExchange("ORDER_SUCCESS_EXCHANGE", "fanout", {
-            durable: false,
+            durable: true,
           });
-          channel.publish(
+          await channel.publish(
             "ORDER_SUCCESS_EXCHANGE",
             "",
             Buffer.from(JSON.stringify(temporaryTransaction))
@@ -94,9 +94,9 @@ export async function createOrder(req, res) {
         res.status(400).json(error);
       });
 
-    const orderInvalid = new Promise((resolve, reject) => {
-      channel.assertQueue("ORDER_INVALID", { durable: true });
-      channel.consume(
+    const orderInvalid = new Promise(async (resolve, reject) => {
+      await channel.assertQueue("ORDER_INVALID", { durable: true });
+      await channel.consume(
         "ORDER_INVALID",
         async (message) => {
           const orderDataInvalidString = message.content.toString();
@@ -154,7 +154,7 @@ export async function updateOrderByBillingId() {
         if (!orderData) return;
 
         await channel.assertExchange("PAYMENT_FINISH_EXCHANGE", "fanout", {
-          durable: false,
+          durable: true,
         });
         channel.publish(
           "PAYMENT_FINISH_EXCHANGE",
@@ -179,32 +179,36 @@ export async function expiredOrder() {
       "TRANSACTIONS_CANCEL_EXCHANGE",
       ""
     );
-    channel.consume("UPDATE_EXPIRED_ORDERS", async (message) => {
-      const content = message.content.toString();
-      const data = JSON.parse(content);
+    channel.consume(
+      "UPDATE_EXPIRED_ORDERS",
+      async (message) => {
+        const content = message.content.toString();
+        const data = JSON.parse(content);
 
-      for (const obj of data) {
-        try {
-          await prisma.order.update({
-            where: { id: obj.orderId },
-            data: { status: "EXPIRED" },
-          });
-        } catch (error) {
-          console.log(error);
+        for (const obj of data) {
+          try {
+            await prisma.order.update({
+              where: { id: obj.orderId },
+              data: { status: "EXPIRED" },
+            });
+          } catch (error) {
+            console.log(error);
+          }
         }
-      }
 
-      await channel.assertExchange(
-        "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
-        "fanout",
-        { durable: false }
-      );
-      channel.publish(
-        "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
-        "",
-        Buffer.from(JSON.stringify("Cancelation success."))
-      );
-    });
+        await channel.assertExchange(
+          "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
+          "fanout",
+          { durable: true }
+        );
+        channel.publish(
+          "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
+          "",
+          Buffer.from(JSON.stringify("Cancelation success."))
+        );
+      },
+      { noAck: true }
+    );
   } catch (error) {
     console.log(error);
   }
@@ -217,13 +221,13 @@ export async function test2Microservices(req, res) {
   try {
     const { channel, connection } = await createAmqpConnection();
 
-    channel.assertQueue("GET_USER", { durable: false });
+    channel.assertQueue("GET_USER", { durable: true });
     channel.sendToQueue("GET_USER", Buffer.from(userId), {
       replyTo: "GET_USER_FINISH",
     });
 
-    const getUser = new Promise((resolve, reject) => {
-      channel.consume(
+    const getUser = new Promise(async (resolve, reject) => {
+      await channel.consume(
         "GET_USER_FINISH",
         (message) => {
           const content = message.content.toString();
@@ -262,14 +266,14 @@ export async function test3Microservices(req, res) {
   try {
     const { channel, connection } = await createAmqpConnection();
 
-    channel.assertQueue("GET_USER_&_BILLING", { durable: false });
+    channel.assertQueue("GET_USER_&_BILLING", { durable: true });
     channel.sendToQueue(
       "GET_USER_&_BILLING",
       Buffer.from(JSON.stringify({ userId, billingId }))
     );
 
-    const getUserNBilling = new Promise((resolve, reject) => {
-      channel.consume(
+    const getUserNBilling = new Promise(async (resolve, reject) => {
+      await channel.consume(
         "GET_USER_&_BILLING_FINISH",
         (message) => {
           const content = message.content.toString();

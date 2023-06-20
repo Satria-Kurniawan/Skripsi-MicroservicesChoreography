@@ -18,10 +18,10 @@ export async function createShipping() {
 
         const shippingData = await prisma.shipping.create({
           data: {
-            carrier: shippingCarrier,
+            carrier: shippingCarrier || "",
             currentLocation: "",
-            shippingAddress,
-            status,
+            shippingAddress: shippingAddress || "",
+            status: status || "",
             trackingNumber: "sje2j9u9u12j1d01",
             userId,
             orderId: orderData.id,

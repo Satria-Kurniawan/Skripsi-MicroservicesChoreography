@@ -195,7 +195,7 @@ export async function test2Microservices() {
   try {
     const { channel } = await createAmqpConnection();
 
-    channel.assertQueue("GET_USER", { durable: false });
+    channel.assertQueue("GET_USER", { durable: true });
     channel.consume(
       "GET_USER",
       async (message) => {
@@ -226,7 +226,7 @@ export async function test3Microservices() {
   try {
     const { channel } = await createAmqpConnection();
 
-    channel.assertQueue("GET_USER_&_BILLING", { durable: false });
+    channel.assertQueue("GET_USER_&_BILLING", { durable: true });
     channel.consume(
       "GET_USER_&_BILLING",
       async (message) => {
@@ -241,7 +241,7 @@ export async function test3Microservices() {
 
         channel.ack(message);
 
-        channel.assertQueue("GET_BILLING", { durable: false });
+        channel.assertQueue("GET_BILLING", { durable: true });
         channel.sendToQueue(
           "GET_BILLING",
           Buffer.from(JSON.stringify({ user, billingId: data.billingId }))

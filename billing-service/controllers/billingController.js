@@ -91,7 +91,7 @@ export async function updateBilling() {
         if (!billingData) return;
 
         await channel.assertExchange("PAYMENT_FINISH_EXCHANGE", "fanout", {
-          durable: false,
+          durable: true,
         });
         channel.publish(
           "PAYMENT_FINISH_EXCHANGE",
@@ -116,32 +116,36 @@ export async function expiredBilling() {
       "TRANSACTIONS_CANCEL_EXCHANGE",
       ""
     );
-    channel.consume("UPDATE_EXPIRED_BILLINGS", async (message) => {
-      const content = message.content.toString();
-      const data = JSON.parse(content);
+    channel.consume(
+      "UPDATE_EXPIRED_BILLINGS",
+      async (message) => {
+        const content = message.content.toString();
+        const data = JSON.parse(content);
 
-      for (const obj of data) {
-        try {
-          await prisma.billing.update({
-            where: { id: obj.billingId },
-            data: { paymentStatus: "EXPIRED" },
-          });
-        } catch (error) {
-          console.log(error);
+        for (const obj of data) {
+          try {
+            await prisma.billing.update({
+              where: { id: obj.billingId },
+              data: { paymentStatus: "EXPIRED" },
+            });
+          } catch (error) {
+            console.log(error);
+          }
         }
-      }
 
-      await channel.assertExchange(
-        "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
-        "fanout",
-        { durable: false }
-      );
-      channel.publish(
-        "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
-        "",
-        Buffer.from(JSON.stringify("Cancelation success."))
-      );
-    });
+        await channel.assertExchange(
+          "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
+          "fanout",
+          { durable: true }
+        );
+        channel.publish(
+          "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
+          "",
+          Buffer.from(JSON.stringify("Cancelation success."))
+        );
+      },
+      { noAck: true }
+    );
   } catch (error) {
     console.log(error);
   }
@@ -151,7 +155,7 @@ export async function test3Microservices() {
   try {
     const { channel } = await createAmqpConnection();
 
-    channel.assertQueue("GET_BILLING", { durable: false });
+    channel.assertQueue("GET_BILLING", { durable: true });
     channel.consume(
       "GET_BILLING",
       async (message) => {
@@ -166,7 +170,7 @@ export async function test3Microservices() {
 
         channel.ack(message);
 
-        channel.assertQueue("GET_USER_&_BILLING_FINISH", { durable: false });
+        channel.assertQueue("GET_USER_&_BILLING_FINISH", { durable: true });
         channel.sendToQueue(
           "GET_USER_&_BILLING_FINISH",
           Buffer.from(JSON.stringify({ user: data.user, billing }))

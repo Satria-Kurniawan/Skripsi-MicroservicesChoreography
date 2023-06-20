@@ -55,7 +55,7 @@ export async function confirmPayment(req, res) {
     const { connection, channel } = await createAmqpConnection();
 
     await channel.assertExchange("PAYMENT_EXCHANGE", "fanout", {
-      durable: false,
+      durable: true,
     });
     channel.publish(
       "PAYMENT_EXCHANGE",
@@ -64,7 +64,7 @@ export async function confirmPayment(req, res) {
     );
 
     const updateBillingStatus = new Promise(async (resolve, reject) => {
-      await channel.assertQueue("UPDATE_BILLING_SUCCESS", { exclusive: true });
+      await channel.assertQueue("UPDATE_BILLING_SUCCESS");
       await channel.bindQueue(
         "UPDATE_BILLING_SUCCESS",
         "PAYMENT_FINISH_EXCHANGE",
@@ -85,7 +85,7 @@ export async function confirmPayment(req, res) {
     });
 
     const updateOrderStatus = new Promise(async (resolve, reject) => {
-      await channel.assertQueue("UPDATE_ORDER_SUCCESS", { exclusive: true });
+      await channel.assertQueue("UPDATE_ORDER_SUCCESS");
       await channel.bindQueue(
         "UPDATE_ORDER_SUCCESS",
         "PAYMENT_FINISH_EXCHANGE",
@@ -169,7 +169,7 @@ export async function cancelTransactions(req, res) {
     const { connection, channel } = await createAmqpConnection();
 
     await channel.assertExchange("TRANSACTIONS_CANCEL_EXCHANGE", "fanout", {
-      durable: false,
+      durable: true,
     });
     channel.publish(
       "TRANSACTIONS_CANCEL_EXCHANGE",
@@ -184,20 +184,26 @@ export async function cancelTransactions(req, res) {
         "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
         ""
       );
-      channel.consume("TRANSACTION_CANCEL_SUCCESS", async (message) => {
-        const content = message.content.toString();
-        const data = JSON.parse(content);
+      channel.consume(
+        "TRANSACTION_CANCEL_SUCCESS",
+        async (message) => {
+          const content = message.content.toString();
+          const data = JSON.parse(content);
 
-        if (!data) reject("Cancelation error.");
-        resolve(data);
-      });
+          if (!data) reject("Cancelation error.");
+          resolve(data);
+        },
+        { noAck: true }
+      );
     });
 
     cancelation
       .then(async (result) => {
-        await prisma.temporaryTransaction.deleteMany({
-          where: { expiresAt: { lt: currentDate } },
-        });
+        // await prisma.temporaryTransaction.deleteMany({
+        //   where: { expiresAt: { lt: currentDate } },
+        // });
+        await channel.close();
+        await connection.close();
 
         res.send({
           result,

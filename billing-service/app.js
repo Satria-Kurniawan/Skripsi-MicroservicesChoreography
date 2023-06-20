@@ -18,8 +18,8 @@ app.use("/api/billing", router);
 
 createBilling();
 updateBilling();
-expiredBilling();
+// expiredBilling();
 
-test3Microservices();
+// test3Microservices();
 
 app.listen(port, () => console.log(`Billing service running on port ${port}`));

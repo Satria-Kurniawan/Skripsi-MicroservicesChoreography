@@ -15,7 +15,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use("/api/order", router);
 
 updateOrderByBillingId();
-expiredOrder();
+// expiredOrder();
 
 app.listen(port, "0.0.0.0", () =>
   console.log(`Order service running on port ${port}`)

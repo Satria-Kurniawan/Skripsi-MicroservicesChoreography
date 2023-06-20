@@ -162,32 +162,36 @@ export async function rollbackProductStock() {
       "TRANSACTIONS_CANCEL_EXCHANGE",
       ""
     );
-    channel.consume("ROLLBACK_PRODUCTS_STOCK", async (message) => {
-      const content = message.content.toString();
-      const data = JSON.parse(content);
+    channel.consume(
+      "ROLLBACK_PRODUCTS_STOCK",
+      async (message) => {
+        const content = message.content.toString();
+        const data = JSON.parse(content);
 
-      for (const obj of data) {
-        try {
-          await prisma.product.update({
-            where: { id: obj.productId },
-            data: { quantities: obj.productStock + obj.orderQuantity },
-          });
-        } catch (error) {
-          console.log(error);
+        for (const obj of data) {
+          try {
+            await prisma.product.update({
+              where: { id: obj.productId },
+              data: { quantities: obj.productStock + obj.orderQuantity },
+            });
+          } catch (error) {
+            console.log(error);
+          }
         }
-      }
 
-      await channel.assertExchange(
-        "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
-        "fanout",
-        { durable: false }
-      );
-      channel.publish(
-        "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
-        "",
-        Buffer.from(JSON.stringify("Cancelation success."))
-      );
-    });
+        await channel.assertExchange(
+          "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
+          "fanout",
+          { durable: true }
+        );
+        channel.publish(
+          "TRANSACTIONS_CANCEL_SUCCESS_EXCHANGE",
+          "",
+          Buffer.from(JSON.stringify("Cancelation success."))
+        );
+      },
+      { noAck: true }
+    );
   } catch (error) {
     console.log(error);
   }
